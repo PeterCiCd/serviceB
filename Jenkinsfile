@@ -13,6 +13,12 @@ pipeline {
             description: 'Shall we build docker image'
         )
 
+        choice (
+            name: 'DOCKER_PUSH',
+            choices: ['nexus', 'cloud'],
+            description: 'Shall we build docker image'
+        )        
+        
         string (
             name: 'DOCKER_TAG',
             defaultValue: 'latest',
@@ -42,6 +48,9 @@ pipeline {
         }
 
         stage("Upload jar artifact") {
+           when {           
+                   branch 'master'
+           }             
             steps {
                 withCredentials([usernamePassword(credentialsId: 'NEXUS_USER', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]){
                     sh 'ls target '
@@ -58,11 +67,26 @@ pipeline {
             }
         }
 
-       stage("Docker build and push"){
+       stage("Docker build"){
            when {
                anyOf {
                    branch 'master'
                    expression { params.DOCKER_BUILD == 'yes' }
+              }
+           }
+           environment {
+               TAG = "${params.DOCKER_TAG}"
+           }
+           steps {
+                   sh 'docker build -t service-b:$TAG .'
+           }
+       }
+        
+       stage("Docker push nexus"){
+           when {
+               allOf {
+                   expression { params.DOCKER_BUILD == 'yes' }
+                   expression { params.DOCKER_PUSH == 'nexus' }
               }
            }
            environment {
@@ -78,7 +102,29 @@ pipeline {
                }
            }
        }
-
+        
+        
+       stage("Docker push hub.docker.com"){
+           when {
+               anyOf {
+                   expression { params.DOCKER_BUILD == 'yes' }
+                   expression { params.DOCKER_PUSH == 'cloud' }
+              }
+           }
+           environment {
+               TAG = "${params.DOCKER_TAG}"
+           }
+           steps {
+               withCredentials([usernamePassword(credentialsId: 'HubDockerUser', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]){
+                   sh 'docker build -t service-b:$TAG .'
+                   sh 'docker tag service-b:$TAG  petercicd/service-b:$TAG'
+                   sh 'docker login --username $USERNAME --password $PASSWORD'
+                   sh 'docker push petercicd/service-b:$TAG'
+                   sh 'docker rmi petercicd/service-b:$TAG'
+               }
+           }
+       }
+        
     }
     post{
         always{
