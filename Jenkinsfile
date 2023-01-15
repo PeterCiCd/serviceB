@@ -52,7 +52,7 @@ pipeline {
                         -F maven2.asset1=@target/serviceB-$PACKAGE_VERSION.jar \
                         -F maven2.artifactId=serviceB \
                         -F maven2.version=${GIT_COMMIT} \
-                        -u $USERNAME:$PASSWORD http://nexus:8081/service/rest/v1/components?repository=maven-dev
+                        -u $USERNAME:$PASSWORD http://192.168.0.146:8081/service/rest/v1/components?repository=maven-dev
                     '''
                 }
             }
@@ -71,10 +71,10 @@ pipeline {
            steps {
                withCredentials([usernamePassword(credentialsId: 'NEXUS_USER', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]){
                    sh 'docker build -t service-b:$TAG .'
-                   sh 'docker tag service-b:$TAG  nexus.docker.internal:5000/repository/demo/service-b:$TAG'
-                   sh 'docker login --username $USERNAME --password $PASSWORD http://nexus.docker.internal:5000/repository/demo '
-                   sh 'docker push  nexus.docker.internal:5000/repository/demo/service-b:$TAG'
-                   sh 'docker rmi  nexus.docker.internal:5000/repository/demo/service-b:$TAG'
+                   sh 'docker tag service-b:$TAG  192.168.0.146:5000/repository/demo/service-b:$TAG'
+                   sh 'docker login --username $USERNAME --password $PASSWORD http://192.168.0.146:5000/repository/demo '
+                   sh 'docker push  192.168.0.146:5000/repository/demo/service-b:$TAG'
+                   sh 'docker rmi  192.168.0.146:5000/repository/demo/service-b:$TAG'
                }
            }
        }
