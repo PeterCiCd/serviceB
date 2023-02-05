@@ -41,7 +41,7 @@ build-job:       # This job runs in the build stage, which runs first.
       - target/*.jar
     expire_in: 2 day
 
-Dockerise project:
+dockerise-job:
   stage: dockerise
   image: docker:latest
   services:
@@ -53,3 +53,23 @@ Dockerise project:
   script:
     - docker build -t $REGISTRY_IMAGE/$CI_PROJECT_NAME:latest .
     - docker push  $REGISTRY_IMAGE/$CI_PROJECT_NAME:latest
+
+deploy-job:
+  stage: deploy
+  image:
+    # name: bitnami/kubectl:latest
+    name: bitnami/kubectl:1.24.6-debian-11-r3 # в этой версии есть curl, в последующих удален
+    entrypoint: ['']
+  script:
+    # Для подключения к ксластеру использую тунель через ngrok, но при первом обращении получаем
+    # browser-warning, поэтому сначала дерним ресурс через curl
+    # в работе этого не должно быть. 
+    - curl -H 'ngrok-skip-browser-warning:69420' $K8S_SERVER_URL
+    - git clone --branch cloud https://github.com/PeterCiCd/k8s.git
+    - kubectl apply -f k8s/$CI_PROJECT_NAME/deployment.yml  --kubeconfig $K8S_CONFIG --insecure-skip-tls-verify
+    - kubectl apply -f k8s/$CI_PROJECT_NAME/service.yml  --kubeconfig $K8S_CONFIG --insecure-skip-tls-verify
+    # в учебных целях посмотрим что задеплоили, в работе не надо.
+    - kubectl get deployment --kubeconfig $K8S_CONFIG --insecure-skip-tls-verify
+    - kubectl describe deployment $CI_PROJECT_NAME --kubeconfig $K8S_CONFIG --insecure-skip-tls-verify
+    - kubectl get pods --kubeconfig $K8S_CONFIG --insecure-skip-tls-verify 
+  when: manual # запуск job руками.
